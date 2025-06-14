@@ -1,58 +1,70 @@
-# import streamlit as st
-
-# File: App.py
-
 import streamlit as st
-from PIL import Image
 from gtts import gTTS
-import os
 from moviepy.editor import *
+from PIL import Image, ImageDraw, ImageFont
+import os
+import uuid
 
-st.title("🎬 Sosovideo - AI Script to Video")
+st.set_page_config(page_title="Sosovideo", layout="centered")
 
-# Step 1: Take Script Input
-script = st.text_area("Enter your video script", height=200)
+st.title("🎬 Welcome to Sosovideo!")
+st.write("This is your AI-powered video generation app. Just enter a script, and let the AI do the magic!")
 
-# Step 2: Generate Voice from Script
+script = st.text_area("Enter your video script here:")
+
 if st.button("Generate Video"):
     if script.strip() == "":
         st.warning("Please enter a script.")
     else:
-        # Save audio
-        tts = gTTS(script)
-        audio_path = "voice.mp3"
-        tts.save(audio_path)
-
-        # Create a sample image (you can later replace this with AI-generated image)
-        img = Image.new('RGB', (1280, 720), color = (73, 109, 137))
-        img_path = "scene.jpg"
-        img.save(img_path)
-
-        # Combine image and audio into video
-        image_clip = ImageClip(img_path).set_duration(10)
-        audio_clip = AudioFileClip(audio_path).subclip(0, 10)
-        video = image_clip.set_audio(audio_clip)
-        video_path = "final_video.mp4"
-        video.write_videofile(video_path, fps=24)
-
-        # Show video
-        st.video(video_path)
-        st.success("🎉 Video generated successfully!")
-st.set_page_config(page_title="SosoVideo AI", layout="centered")
-
-st.title("🎬 Welcome to SosoVideo AI!")
-st.write("Create AI-generated videos from your scripts in just one click.")
-
-script = st.text_area("✍️ Enter your video script here:", height=200)
-
-if st.button("🎥 Generate Video"):
-    if script.strip() == "":
-        st.warning("Please enter a script to generate the video.")
-    else:
         with st.spinner("Generating video..."):
-            # Simulated video generation
+
+            # Step 1: Convert text to speech
+            audio_filename = f"{uuid.uuid4().hex}_audio.mp3"
+            tts = gTTS(text=script, lang='en')
+            tts.save(audio_filename)
+
+            # Step 2: Create an image with the script text
+            img_filename = f"{uuid.uuid4().hex}_image.png"
+            img = Image.new('RGB', (1280, 720), color=(10, 10, 30))
+            draw = ImageDraw.Draw(img)
+
+            font = ImageFont.truetype("arial.ttf", 48) if os.path.exists("arial.ttf") else ImageFont.load_default()
+
+            # Wrap text
+            max_width = 50
+            lines = []
+            words = script.split()
+            line = ""
+            for word in words:
+                if len(line + " " + word) < max_width:
+                    line += " " + word
+                else:
+                    lines.append(line.strip())
+                    line = word
+            lines.append(line.strip())
+
+            y_text = 250
+            for line in lines:
+                width, height = draw.textsize(line, font=font)
+                draw.text(((1280 - width) / 2, y_text), line, font=font, fill=(255, 255, 255))
+                y_text += height + 10
+
+            img.save(img_filename)
+
+            # Step 3: Create video from image and audio
+            clip = ImageClip(img_filename).set_duration(AudioFileClip(audio_filename).duration)
+            clip = clip.set_audio(AudioFileClip(audio_filename))
+            video_filename = f"{uuid.uuid4().hex}_video.mp4"
+            clip.write_videofile(video_filename, fps=24)
+
+            # Step 4: Show video and provide download
             st.success("✅ Video generated successfully!")
-            st.video("https://samplelib.com/lib/preview/mp4/sample-5s.mp4")  # Placeholder
+            st.video(video_filename)
 
-st.info("Note: This is a prototype version of the SosoVideo AI app.")
+            with open(video_filename, "rb") as f:
+                st.download_button("Download Video", f, file_name="sosovideo.mp4", mime="video/mp4")
 
+            # Cleanup
+            os.remove(audio_filename)
+            os.remove(img_filename)
+            os.remove(video_filename)
